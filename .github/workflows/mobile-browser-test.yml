@@ -109,17 +109,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
 
-      - name: Install maestro-runner (only if runner.txt asks for it)
-        if: hashFiles('runner.txt') != ''
-        timeout-minutes: 3
-        run: |
-          set -euo pipefail
-          V=1.1.31; F=maestro-runner-$V-linux-amd64.tar.gz
-          B=https://github.com/devicelab-dev/maestro-runner/releases/download/v$V
-          mkdir -p "$HOME/mr" && cd "$HOME/mr"
-          curl -fsSL -O "$B/$F" -O "$B/$F.sha256"
-          sha256sum -c "$F.sha256" && tar xzf "$F"
-
       - name: Enable KVM
         timeout-minutes: 2
         run: |
