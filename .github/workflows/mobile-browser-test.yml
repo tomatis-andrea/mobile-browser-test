@@ -57,6 +57,7 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/join-tailnet
+        timeout-minutes: 5  # di solito 1 minuto; se si pianta, fallisce subito e il log si apre
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -99,6 +100,7 @@ jobs:
           maestro-version: ${{ env.MAESTRO_VERSION }}
           maestro-sha256: ${{ env.MAESTRO_SHA256 }}
       - uses: ./.github/actions/join-tailnet
+        timeout-minutes: 5  # di solito 1 minuto; se si pianta, fallisce subito e il log si apre
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
