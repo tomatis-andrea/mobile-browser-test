@@ -63,12 +63,8 @@ jobs:
 
       - name: Test Safari
         # dopo un errore Maestro su iOS a volte non esce più: senza limite il job aspetterebbe i 30 minuti
-        timeout-minutes: 12
-        run: |
-          maestro --device "${{ steps.sim.outputs.udid }}" test --test-output-dir out/ios-safari \
-            -e APP_ID=com.apple.mobilesafari \
-            -e BASE_URL="$BASE_URL" -e PIN="$PIN" -e STAGE_PATH="$STAGE_PATH" -e STAGE_TITLE="$STAGE_TITLE" \
-            "flows/$FLOW.yaml"
+        timeout-minutes: 20
+        run: bash flows/ios.sh "${{ steps.sim.outputs.udid }}"
 
       - if: always()
         uses: ./.github/actions/save-results
