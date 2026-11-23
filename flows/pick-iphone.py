@@ -1,4 +1,6 @@
-"""Dall'elenco JSON di `xcrun simctl list devices available -j` (stdin) stampa l'UDID di un iPhone col iOS più recente."""
+"""Dall'elenco JSON di `xcrun simctl list devices available -j` (stdin) stampa l'UDID di un iPhone "normale" col iOS più recente.
+Sul Mac di Andrea esiste un runtime a parte (iOS-27-2-iPhone19-4) con il solo "iPhone Duo", dalla barra di Safari diversa:
+si scelgono modelli come "iPhone 18 Pro" in QUALSIASI runtime; solo se non ce ne sono si ripiega sul primo iPhone."""
 import json
 import re
 import sys
@@ -7,17 +9,25 @@ devices = json.load(sys.stdin)["devices"]
 
 
 def ios_version(runtime: str) -> list[int]:
-    return [int(n) for n in re.findall(r"\d+", runtime.split("iOS-")[-1])]
+    m = re.search(r"iOS-(\d+(?:-\d+)*)", runtime)
+    return [int(n) for n in m.group(1).split("-")] if m else [0]
 
 
-for runtime in sorted((r for r in devices if "iOS" in r), key=ios_version, reverse=True):
-    phones = [d for d in devices[runtime] if d["name"].startswith("iPhone") and "SE" not in d["name"]]
-    # meglio un iPhone "normale" (es. "iPhone 17 Pro"): modelli come "iPhone Duo" hanno una barra di Safari diversa
-    normal = [d for d in phones if re.fullmatch(r"iPhone \d+( Pro)?", d["name"])]
-    phones = normal or phones
-    if phones:
-        print(phones[0]["udid"])
-        print(runtime, phones[0]["name"], file=sys.stderr)
-        break
-else:
+def phones(pattern):
+    found = []
+    for runtime, devs in devices.items():
+        if "iOS" not in runtime:
+            continue
+        for d in devs:
+            if d["name"].startswith("iPhone") and "SE" not in d["name"] and re.fullmatch(pattern, d["name"]):
+                # prima il iOS più recente, poi "Pro" (schermo più tipico)
+                found.append((ios_version(runtime), "Pro" in d["name"], d["name"], d["udid"], runtime))
+    return sorted(found, reverse=True)
+
+
+choice = phones(r"iPhone \d+( Pro)?") or phones(r"iPhone.*")
+if not choice:
     sys.exit("nessun iPhone disponibile")
+_, _, name, udid, runtime = choice[0]
+print(udid)
+print(runtime, name, file=sys.stderr)
