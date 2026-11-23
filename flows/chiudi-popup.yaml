@@ -1,0 +1,24 @@
+# Finestre del telefono o del browser che possono coprire la pagina (solo se ci sono).
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
+- runFlow:
+    when:
+      visible: "No thanks"
+    commands:
+      - tapOn: "No thanks"
+- runFlow:
+    when:
+      visible: "Use without an account"
+    commands:
+      - tapOn: "Use without an account"
+# suggerimento di Safari (iOS 26) sopra la barra degli indirizzi
+- runFlow:
+    when:
+      visible: "View Bookmarks.*"
+    commands:
+      - tapOn: "View Bookmarks.*"

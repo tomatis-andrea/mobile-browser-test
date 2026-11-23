@@ -1,0 +1,199 @@
+# Banco prova dei browser su telefono: Safari sul simulatore iPhone (macOS) e Chrome sull'emulatore Android
+# (Linux con KVM), comandati da Maestro.
+#
+# Sicurezza (repository pubblico, minuti illimitati):
+# - indirizzo del sito e IP Tailscale stanno nel segreto TEST_CONFIG; i dati di ogni test (pagina, squadra) sono in
+#   tests/<nome>.enc, criptati con una chiave ricavata dal segreto (tools/nuovo-test.sh); nei log compaiono come ***;
+# - il runner entra nella rete Tailscale solo per il test (nodo effimero, tag:ci: può aprire solo il sito di sviluppo);
+# - screenshot e video sono criptati con age prima del caricamento (chiave privata solo sul server), tenuti 1 giorno;
+# - azioni esterne fissate a un commit preciso, Maestro scaricato dalla release ufficiale con verifica sha256;
+# - parte solo da push sul ramo main o a mano (mai da pull request di altri), permessi in sola lettura.
+name: Mobile browser test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-browser-test
+  cancel-in-progress: true
+
+env:
+  MAESTRO_VERSION: cli-2.12.1
+  MAESTRO_SHA256: 54dbb0716425626604973cbb374c585ca30272375d9ce15177a1152765ddd9d7
+
+jobs:
+  ios-safari:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Load config (secret, masked)
+        env:
+          TEST_CONFIG: ${{ secrets.TEST_CONFIG }}
+        run: |
+          while IFS='=' read -r key value; do
+            case "$key" in ''|\#*) continue ;; esac
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done <<< "$TEST_CONFIG"
+          # dati del test scelto in run.txt (pagina, squadra...): file criptato, chiave ricavata dal segreto
+          TEST_NAME=$(head -1 run.txt | tr -cd 'a-zA-Z0-9_-')
+          BASE_URL=$(sed -n 's/^BASE_URL=//p' <<< "$TEST_CONFIG"); TS_TARGET=$(sed -n 's/^TS_TARGET=//p' <<< "$TEST_CONFIG")
+          KEY=$(printf '%s|%s' "$BASE_URL" "$TS_TARGET" | shasum -a 256 | cut -d' ' -f1) \
+            "$(command -v /opt/homebrew/opt/openssl@3/bin/openssl || command -v openssl)" enc -d -aes-256-cbc -pbkdf2 -iter 200000 -a -pass env:KEY -in "tests/$TEST_NAME.enc" > /tmp/test.env
+          while IFS='=' read -r key value; do
+            case "$key" in ''|\#*) continue ;; esac
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < /tmp/test.env
+          rm -f /tmp/test.env
+          echo "TEST_NAME=$TEST_NAME" >> "$GITHUB_ENV"
+          grep -v '^#' encryption.env >> "$GITHUB_ENV"
+
+      - name: Tailscale (ephemeral, tag:ci)
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ env.TS_TARGET }}
+
+      - name: Check site reachable
+        run: curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 90 "$BASE_URL/it"
+
+      - name: Install Maestro (verified) and age
+        run: |
+          curl -fsSL -o maestro.zip "https://github.com/mobile-dev-inc/maestro/releases/download/$MAESTRO_VERSION/maestro.zip"
+          echo "$MAESTRO_SHA256  maestro.zip" | shasum -a 256 -c -
+          unzip -q maestro.zip -d "$HOME" && rm maestro.zip
+          echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+          brew install age >/dev/null
+
+      - name: Boot iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          data = json.load(sys.stdin)["devices"]
+          ver = lambda rt: [int(x) for x in re.findall(r"\d+", rt.split("iOS-")[-1])]
+          runtimes = sorted((rt for rt in data if "iOS" in rt), key=ver, reverse=True)
+          for rt in runtimes:
+              phones = [d for d in data[rt] if d["name"].startswith("iPhone") and "SE" not in d["name"]]
+              if phones:
+                  print(phones[0]["udid"]); print(rt, phones[0]["name"], file=sys.stderr); break
+          ')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Test Safari
+        run: |
+          maestro --device "${{ steps.sim.outputs.udid }}" test --test-output-dir out/ios-safari \
+            -e APP_ID=com.apple.mobilesafari \
+            -e BASE_URL="$BASE_URL" -e PIN="$PIN" -e STAGE_PATH="$STAGE_PATH" -e STAGE_TITLE="$STAGE_TITLE" \
+            flows/$FLOW.yaml
+
+      - name: Encrypt screenshots and video
+        if: always()
+        run: |
+          mkdir -p enc
+          tar czf - out *.mp4 2>/dev/null | age -r "$AGE_RECIPIENT" -o enc/ios-safari.tar.gz.age || true
+          rm -rf out *.mp4
+          ls -la enc
+
+      - name: Upload (encrypted only)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-safari
+          path: enc/
+          retention-days: 1
+
+  android-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Load config (secret, masked)
+        env:
+          TEST_CONFIG: ${{ secrets.TEST_CONFIG }}
+        run: |
+          while IFS='=' read -r key value; do
+            case "$key" in ''|\#*) continue ;; esac
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done <<< "$TEST_CONFIG"
+          # dati del test scelto in run.txt (pagina, squadra...): file criptato, chiave ricavata dal segreto
+          TEST_NAME=$(head -1 run.txt | tr -cd 'a-zA-Z0-9_-')
+          BASE_URL=$(sed -n 's/^BASE_URL=//p' <<< "$TEST_CONFIG"); TS_TARGET=$(sed -n 's/^TS_TARGET=//p' <<< "$TEST_CONFIG")
+          KEY=$(printf '%s|%s' "$BASE_URL" "$TS_TARGET" | shasum -a 256 | cut -d' ' -f1) \
+            "$(command -v /opt/homebrew/opt/openssl@3/bin/openssl || command -v openssl)" enc -d -aes-256-cbc -pbkdf2 -iter 200000 -a -pass env:KEY -in "tests/$TEST_NAME.enc" > /tmp/test.env
+          while IFS='=' read -r key value; do
+            case "$key" in ''|\#*) continue ;; esac
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < /tmp/test.env
+          rm -f /tmp/test.env
+          echo "TEST_NAME=$TEST_NAME" >> "$GITHUB_ENV"
+          grep -v '^#' encryption.env >> "$GITHUB_ENV"
+
+      - name: Tailscale (ephemeral, tag:ci)
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ env.TS_TARGET }}
+
+      - name: Check site reachable
+        run: curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 90 "$BASE_URL/it"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Maestro (verified) and age
+        run: |
+          curl -fsSL -o maestro.zip "https://github.com/mobile-dev-inc/maestro/releases/download/$MAESTRO_VERSION/maestro.zip"
+          echo "$MAESTRO_SHA256  maestro.zip" | sha256sum -c -
+          unzip -q maestro.zip -d "$HOME" && rm maestro.zip
+          echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+          sudo apt-get install -y -qq age >/dev/null
+
+      - name: Test Chrome on Android emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: playstore
+          arch: x86_64
+          profile: pixel_7
+          cores: 4
+          ram-size: 4096M
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash flows/android.sh
+
+      - name: Encrypt screenshots and video
+        if: always()
+        run: |
+          mkdir -p enc
+          tar czf - out *.mp4 2>/dev/null | age -r "$AGE_RECIPIENT" -o enc/android-chrome.tar.gz.age || true
+          rm -rf out *.mp4
+          ls -la enc
+
+      - name: Upload (encrypted only)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-chrome
+          path: enc/
+          retention-days: 1

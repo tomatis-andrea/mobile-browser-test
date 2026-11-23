@@ -1,0 +1,60 @@
+# Bug di Bengi: dalla foto della tappa al quiz scorrendo col dito (non con la freccia).
+# Variabili: APP_ID (browser), BASE_URL, PIN, STAGE_PATH, STAGE_TITLE (segreto TEST_CONFIG).
+appId: ${APP_ID}
+---
+- openLink: ${BASE_URL}/it/play?pin=${PIN}
+- runFlow: chiudi-popup.yaml
+- extendedWaitUntil:
+    visible: "GIOCA"
+    timeout: 120000
+- takeScreenshot: 0-play
+# GIOCA funziona solo a pagina pronta: si riprova finché non si apre il gioco (contatore delle tappe).
+- repeat:
+    times: 5
+    while:
+      notVisible: ".*Tappe risolte.*"
+    commands:
+      - runFlow: chiudi-popup.yaml
+      - runFlow:
+          when:
+            visible: "GIOCA"
+          commands:
+            - tapOn: "GIOCA"
+      - extendedWaitUntil:
+          visible: ".*Tappe risolte.*"
+          timeout: 20000
+          optional: true
+- assertVisible: ".*Tappe risolte.*"
+- openLink: ${BASE_URL}${STAGE_PATH}
+- runFlow: chiudi-popup.yaml
+- extendedWaitUntil:
+    visible: ${STAGE_TITLE}
+    timeout: 120000
+- waitForAnimationToEnd:
+    timeout: 10000
+- takeScreenshot: 1-foto
+- startRecording: scorrimento
+- swipe:
+    start: 50%, 70%
+    end: 50%, 30%
+    duration: 900
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 2-quiz
+# un altro piccolo scorrimento sul quiz: il riquadro non deve tagliare la prima fila
+- swipe:
+    start: 50%, 60%
+    end: 50%, 50%
+    duration: 700
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 3-quiz-dopo
+# ritorno alla foto
+- swipe:
+    start: 50%, 30%
+    end: 50%, 75%
+    duration: 900
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 4-foto-di-nuovo
+- stopRecording
