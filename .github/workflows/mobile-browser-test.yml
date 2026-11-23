@@ -70,30 +70,16 @@ jobs:
           sleep 20  # SpringBoard e Safari pronti
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
-      - uses: ./.github/actions/join-tailnet
-        timeout-minutes: 5  # di solito 1 minuto; se si pianta, fallisce subito e il log si apre
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+      # iPhone: niente Tailscale sul Mac di GitHub (si bloccava). Il sito si apre dal Funnel pubblico, che viene aperto
+      # solo per il test dalla skill (scripts/funnel.sh) e chiuso subito dopo.
+      - name: Check site reachable (public Funnel)
+        timeout-minutes: 3
+        run: curl -sS -o /dev/null -w "HTTP %{http_code}\n" --retry 5 --retry-delay 5 --max-time 30 "$BASE_URL/it"
 
       - name: Test Safari
         # dopo un errore Maestro su iOS a volte non esce più: senza limite il job aspetterebbe i 30 minuti
         timeout-minutes: 15
         run: bash flows/ios.sh "${{ steps.sim.outputs.udid }}"
-
-      # Dopo il test Tailscale non serve più. Acceso, il Mac non risolve i nomi di GitHub e il passo seguente fallisce
-      # già all'avvio ("Failed to resolve action download info"): per questo è un passo a parte, non dentro save-results.
-      - name: Leave tailnet (restore DNS)
-        if: always()
-        timeout-minutes: 6
-        run: |
-          sudo tailscale down || true
-          sudo pkill tailscaled || true
-          sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder || true
-          for _ in $(seq 1 20); do
-            dscacheutil -q host -a name launch.actions.githubusercontent.com | grep -q ip_address && break
-            sleep 2
-          done
 
       - if: always()
         uses: ./.github/actions/save-results
