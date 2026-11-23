@@ -34,12 +34,20 @@ appId: ${APP_ID}
     timeout: 10000
 - takeScreenshot: 1-foto
 - startRecording: scorrimento
-- swipe:
-    start: 50%, 70%
-    end: 50%, 30%
-    duration: 900
-- waitForAnimationToEnd:
-    timeout: 5000
+# Il dito parte dalla zona alta (foto, fuori dal riquadro del testo che scorre da solo) e sale veloce: si riprova
+# finché il titolo della tappa non esce dallo schermo, cioè finché la pagina è davvero passata al quiz.
+- repeat:
+    times: 4
+    while:
+      visible: ${STAGE_TITLE}
+    commands:
+      - swipe:
+          start: 50%, 38%
+          end: 50%, 6%
+          duration: 350
+      - waitForAnimationToEnd:
+          timeout: 3000
+- assertNotVisible: ${STAGE_TITLE}
 - takeScreenshot: 2-quiz
 # un altro piccolo scorrimento sul quiz: il riquadro non deve tagliare la prima fila
 - swipe:
