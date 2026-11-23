@@ -16,7 +16,7 @@ if [ -f runner.txt ] && [ "$(head -1 runner.txt)" = maestro-runner ]; then
   # prova di maestro-runner (senza Java). Il driver non garantisce startRecording: lo si toglie e si usa --record.
   export MAESTRO_RUNNER_NO_TELEMETRY=1 DO_NOT_TRACK=1
   grep -vE '^- (startRecording|stopRecording)' "flows/$FLOW.yaml" > "flows/runner-$FLOW.yaml"
-  timeout 600 "$HOME/mr/maestro-runner/bin/maestro-runner" --platform android --driver uiautomator2 test --output out/android-chrome --flatten \
+  timeout 600 "$HOME/mr/maestro-runner/bin/maestro-runner" --platform android test --output out/android-chrome --flatten \
     --artifacts always --record -e APP_ID=com.android.chrome \
     -e BASE_URL="$BASE_URL" -e PIN="$PIN" -e STAGE_PATH="$STAGE_PATH" -e STAGE_TITLE="$STAGE_TITLE" \
     "flows/runner-$FLOW.yaml"
