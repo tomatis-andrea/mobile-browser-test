@@ -5,23 +5,17 @@ appId: ${APP_ID}
     when:
       visible: "Wait"
     commands:
-      - tapOn:
-          text: "Wait"
-          optional: true
+      - tapOn: "Wait"
 - runFlow:
     when:
       visible: "No thanks"
     commands:
-      - tapOn:
-          text: "No thanks"
-          optional: true
+      - tapOn: "No thanks"
 - runFlow:
     when:
       visible: "Use without an account"
     commands:
-      - tapOn:
-          text: "Use without an account"
-          optional: true
+      - tapOn: "Use without an account"
 # suggerimento di Safari (iOS 26) sopra la barra degli indirizzi. Non toccare il testo del suggerimento: apre il
 # pannello di segnalibri e pannelli, che copre la pagina. Si chiude con la sua X o toccando in alto sulla pagina.
 - runFlow:
@@ -42,6 +36,4 @@ appId: ${APP_ID}
     when:
       visible: "Rifiuta"
     commands:
-      - tapOn:
-          text: "Rifiuta"
-          optional: true
+      - tapOn: "Rifiuta"
