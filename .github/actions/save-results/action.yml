@@ -9,7 +9,15 @@ runs:
     # dopo il test Tailscale non serve più: acceso, il Mac non risolve i nomi di GitHub e il caricamento fallisce
     - if: runner.os == 'macOS'
       shell: bash
-      run: sudo tailscale down || true
+      run: |
+        sudo tailscale down || true
+        sudo pkill tailscaled || true
+        sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder || true
+        for _ in $(seq 1 30); do
+          dscacheutil -q host -a name launch.actions.githubusercontent.com | grep -q ip_address && break
+          sleep 2
+        done
+        dscacheutil -q host -a name launch.actions.githubusercontent.com | grep -c ip_address || scutil --dns | head -20
     - shell: bash
       run: |
         set -uo pipefail
