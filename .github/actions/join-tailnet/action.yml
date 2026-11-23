@@ -1,0 +1,28 @@
+name: Join tailnet
+description: Il runner entra nella rete Tailscale (nodo effimero, tag:ci, può aprire solo il sito di sviluppo) e controlla che il sito risponda.
+inputs:
+  oauth-client-id:
+    required: true
+  oauth-secret:
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+      with:
+        oauth-client-id: ${{ inputs.oauth-client-id }}
+        oauth-secret: ${{ inputs.oauth-secret }}
+        tags: tag:ci
+        # macOS: il DNS di Tailscale non risolve più i nomi pubblici (CDN, GitHub). Si tiene quello di sistema e il
+        # nome del sito va in /etc/hosts (passo sotto), che vale anche per il simulatore iPhone.
+        args: ${{ runner.os == 'macOS' && '--accept-dns=false' || '' }}
+        ping: ${{ env.TS_TARGET }}
+    - if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        HOST=$(python3 -c 'import os, urllib.parse; print(urllib.parse.urlparse(os.environ["BASE_URL"]).hostname)')
+        echo "::add-mask::$HOST"
+        echo "$TS_TARGET $HOST" | sudo tee -a /etc/hosts > /dev/null
+        sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder || true
+    - shell: bash
+      run: curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 90 "$BASE_URL/it"

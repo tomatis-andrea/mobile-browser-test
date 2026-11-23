@@ -1,0 +1,18 @@
+name: Install Maestro and age
+description: Maestro dalla release ufficiale con verifica sha256, age dal gestore di pacchetti del sistema.
+inputs:
+  maestro-version:
+    required: true
+  maestro-sha256:
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        curl -fsSL -o maestro.zip "https://github.com/mobile-dev-inc/maestro/releases/download/${{ inputs.maestro-version }}/maestro.zip"
+        echo "${{ inputs.maestro-sha256 }}  maestro.zip" | shasum -a 256 -c -
+        unzip -q maestro.zip -d "$HOME" && rm maestro.zip
+        echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+        if [ "$RUNNER_OS" = macOS ]; then brew install age > /dev/null; else sudo apt-get install -y -qq age > /dev/null; fi

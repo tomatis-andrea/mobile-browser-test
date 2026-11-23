@@ -1,0 +1,28 @@
+name: Load test data
+description: Indirizzo del sito e IP Tailscale dal segreto TEST_CONFIG, dati del test (tests/<run.txt>.enc) decriptati con TEST_KEY. Tutti i valori sono mascherati nei log.
+inputs:
+  test-config:
+    description: segreto TEST_CONFIG (righe CHIAVE=valore)
+    required: true
+  test-key:
+    description: segreto TEST_KEY (chiave dei file tests/*.enc)
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        TEST_CONFIG: ${{ inputs.test-config }}
+        TEST_KEY: ${{ inputs.test-key }}
+      run: |
+        set -euo pipefail
+        TEST_NAME=$(head -1 run.txt | tr -cd 'a-zA-Z0-9_-')
+        OPENSSL=$(command -v /opt/homebrew/opt/openssl@3/bin/openssl || command -v openssl)  # macOS: LibreSSL di sistema non basta
+        DATA=$("$OPENSSL" enc -d -aes-256-cbc -pbkdf2 -iter 200000 -a -pass env:TEST_KEY -in "tests/$TEST_NAME.enc")
+        while IFS='=' read -r key value; do
+          case "$key" in ''|\#*) continue ;; esac
+          echo "::add-mask::$value"
+          echo "$key=$value" >> "$GITHUB_ENV"
+        done <<< "$TEST_CONFIG"$'\n'"$DATA"
+        echo "TEST_NAME=$TEST_NAME" >> "$GITHUB_ENV"
+        grep -v '^#' encryption.env >> "$GITHUB_ENV"

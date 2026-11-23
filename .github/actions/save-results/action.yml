@@ -1,0 +1,23 @@
+name: Save results (encrypted)
+description: Screenshot, video e log di Maestro criptati con age (chiave privata solo sul server), caricati come artifact per 1 giorno.
+inputs:
+  name:
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -uo pipefail
+        mkdir -p enc
+        if [ -d out ] || ls *.mp4 > /dev/null 2>&1; then
+          tar czf - $(ls -d out *.mp4 2>/dev/null) | age -r "$AGE_RECIPIENT" -o "enc/${{ inputs.name }}.tar.gz.age"
+        fi
+        rm -rf out *.mp4
+        ls -la enc
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: ${{ inputs.name }}
+        path: enc/
+        if-no-files-found: ignore
+        retention-days: 1
