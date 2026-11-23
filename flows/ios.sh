@@ -12,6 +12,7 @@ export DIAG_PID=$!
 trap 'kill $DIAG_PID 2>/dev/null' EXIT
 export MAESTRO_DRIVER_STARTUP_TIMEOUT=300000   # millisecondi
 export MAESTRO_CLI_NO_ANALYTICS=1
+export JAVA_TOOL_OPTIONS="-Xmx640m"   # Maestro (Java) con poca memoria sul Mac di GitHub
 for attempt in 1 2; do
   # Maestro su iOS a volte si pianta senza errore: ogni tentativo ha 6 minuti, poi viene fermato (macOS non ha `timeout`)
   maestro --device "$1" test --test-output-dir out/ios-safari \
