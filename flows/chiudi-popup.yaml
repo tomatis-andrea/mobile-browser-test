@@ -31,3 +31,9 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           point: 50%, 8%
+# banner dei cookie di Enigmap: copre GIOCA su un simulatore appena creato (visto sul Mac, mai su GitHub)
+- runFlow:
+    when:
+      visible: "Rifiuta"
+    commands:
+      - tapOn: "Rifiuta"

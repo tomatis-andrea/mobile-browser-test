@@ -30,5 +30,5 @@ open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null || true
 sleep 15
 set +e; export APP_ID=com.apple.mobilesafari; bash flows/ios.sh "$UDID"; status=$?; set -e
 echo "esito test: $status"
-tar czf - out maestro-ios.log 2>/dev/null | age -r "$AGE_RECIPIENT" >&3
+COPYFILE_DISABLE=1 tar czf - out maestro-ios.log 2>/dev/null | age -r "$AGE_RECIPIENT" >&3
 exit "$status"
