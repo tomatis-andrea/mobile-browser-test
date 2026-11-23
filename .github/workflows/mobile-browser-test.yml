@@ -63,7 +63,7 @@ jobs:
 
       - name: Test Safari
         # dopo un errore Maestro su iOS a volte non esce più: senza limite il job aspetterebbe i 30 minuti
-        timeout-minutes: 20
+        timeout-minutes: 15
         run: bash flows/ios.sh "${{ steps.sim.outputs.udid }}"
 
       # Dopo il test Tailscale non serve più. Acceso, il Mac non risolve i nomi di GitHub e il passo seguente fallisce
