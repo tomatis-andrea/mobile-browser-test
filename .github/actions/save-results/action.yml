@@ -6,6 +6,10 @@ inputs:
 runs:
   using: composite
   steps:
+    # dopo il test Tailscale non serve più: acceso, il Mac non risolve i nomi di GitHub e il caricamento fallisce
+    - if: runner.os == 'macOS'
+      shell: bash
+      run: sudo tailscale down || true
     - shell: bash
       run: |
         set -uo pipefail
