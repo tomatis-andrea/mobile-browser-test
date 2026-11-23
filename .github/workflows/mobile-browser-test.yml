@@ -62,6 +62,8 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
 
       - name: Test Safari
+        # dopo un errore Maestro su iOS a volte non esce più: senza limite il job aspetterebbe i 30 minuti
+        timeout-minutes: 12
         run: |
           maestro --device "${{ steps.sim.outputs.udid }}" test --test-output-dir out/ios-safari \
             -e APP_ID=com.apple.mobilesafari \
@@ -98,6 +100,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Test Chrome on Android emulator
+        timeout-minutes: 25
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 35

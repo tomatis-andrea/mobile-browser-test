@@ -16,9 +16,18 @@ appId: ${APP_ID}
       visible: "Use without an account"
     commands:
       - tapOn: "Use without an account"
-# suggerimento di Safari (iOS 26) sopra la barra degli indirizzi
+# suggerimento di Safari (iOS 26) sopra la barra degli indirizzi. Non toccare il testo del suggerimento: apre il
+# pannello di segnalibri e pannelli, che copre la pagina. Si chiude con la sua X o toccando in alto sulla pagina.
 - runFlow:
     when:
       visible: "View Bookmarks.*"
     commands:
-      - tapOn: "View Bookmarks.*"
+      - tapOn:
+          text: "Close"
+          optional: true
+- runFlow:
+    when:
+      visible: "View Bookmarks.*"
+    commands:
+      - tapOn:
+          point: 50%, 8%
