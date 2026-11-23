@@ -28,18 +28,7 @@ xcrun simctl boot "$UDID" 2>/dev/null || true
 for _ in $(seq 1 60); do xcrun simctl list devices | grep "$UDID" | grep -q Booted && break; sleep 5; done
 open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null || true
 sleep 15
-set +e; export APP_ID=com.apple.mobilesafari
-if [ -n "${RUNNER_BIN:-}" ]; then   # prova di maestro-runner (alternativa a Maestro, senza Java): RUNNER_BIN = percorso relativo alla home
-  export MAESTRO_RUNNER_NO_TELEMETRY=1 DO_NOT_TRACK=1
-  # il driver iPhone di maestro-runner non supporta startRecording/stopRecording: si toglie dal flusso e si usa --record
-  grep -vE '^- (startRecording|stopRecording)' "flows/$FLOW.yaml" > "flows/runner-$FLOW.yaml"; FLOW="runner-$FLOW"
-  timeout 480 "$HOME/$RUNNER_BIN" --platform ios --device "$UDID" test --output out/ios-safari --flatten --artifacts always --record \
-    -e APP_ID="$APP_ID" -e BASE_URL="$BASE_URL" -e PIN="$PIN" -e STAGE_PATH="$STAGE_PATH" -e STAGE_TITLE="$STAGE_TITLE" \
-    "flows/$FLOW.yaml" 2>&1 | tee maestro-ios.log; status=${PIPESTATUS[0]}
-else
-  bash flows/ios.sh "$UDID"; status=$?
-fi
-set -e
+set +e; export APP_ID=com.apple.mobilesafari; bash flows/ios.sh "$UDID"; status=$?; set -e
 echo "esito test: $status"
 COPYFILE_DISABLE=1 tar czf - out maestro-ios.log 2>/dev/null | age -r "$AGE_RECIPIENT" >&3
 exit "$status"
