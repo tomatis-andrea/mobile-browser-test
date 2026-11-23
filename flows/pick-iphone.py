@@ -2,6 +2,7 @@
 Sul Mac di Andrea esiste un runtime a parte (iOS-27-2-iPhone19-4) con il solo "iPhone Duo", dalla barra di Safari diversa:
 si scelgono modelli come "iPhone 18 Pro" in QUALSIASI runtime; solo se non ce ne sono si ripiega sul primo iPhone."""
 import json
+import os
 import re
 import sys
 
@@ -25,7 +26,9 @@ def phones(pattern):
     return sorted(found, reverse=True)
 
 
-choice = phones(r"iPhone \d+( Pro)?") or phones(r"iPhone.*")
+# modello voluto (default iPhone 17, scelta di Andrea); cambialo con la variabile IPHONE_MODEL
+wanted = os.environ.get("IPHONE_MODEL", "iPhone 17")
+choice = phones(re.escape(wanted)) or phones(r"iPhone \d+( Pro)?") or phones(r"iPhone.*")
 if not choice:
     sys.exit("nessun iPhone disponibile")
 _, _, name, udid, runtime = choice[0]
