@@ -56,17 +56,6 @@ jobs:
           echo "TEST_NAME=$TEST_NAME" >> "$GITHUB_ENV"
           grep -v '^#' encryption.env >> "$GITHUB_ENV"
 
-      - name: Tailscale (ephemeral, tag:ci)
-        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-          ping: ${{ env.TS_TARGET }}
-
-      - name: Check site reachable
-        run: curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 90 "$BASE_URL/it"
-
       - name: Install Maestro (verified) and age
         run: |
           curl -fsSL -o maestro.zip "https://github.com/mobile-dev-inc/maestro/releases/download/$MAESTRO_VERSION/maestro.zip"
@@ -74,6 +63,27 @@ jobs:
           unzip -q maestro.zip -d "$HOME" && rm maestro.zip
           echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
           brew install age >/dev/null
+
+      - name: Tailscale (ephemeral, tag:ci)
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          # sul Mac il DNS di Tailscale non risolve più i nomi pubblici (CDN, GitHub): si tiene quello del sistema
+          # e si aggiunge solo il nome del sito di sviluppo in /etc/hosts (lo usa anche il simulatore)
+          args: --accept-dns=false
+          ping: ${{ env.TS_TARGET }}
+
+      - name: Dev site name in /etc/hosts
+        run: |
+          HOST=$(python3 -c 'import os, urllib.parse; print(urllib.parse.urlparse(os.environ["BASE_URL"]).hostname)')
+          echo "::add-mask::$HOST"
+          echo "$TS_TARGET $HOST" | sudo tee -a /etc/hosts > /dev/null
+          sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder || true
+
+      - name: Check site reachable
+        run: curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 90 "$BASE_URL/it"
 
       - name: Boot iPhone simulator
         id: sim
